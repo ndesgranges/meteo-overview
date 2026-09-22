@@ -1,0 +1,22 @@
+{
+    "source": "src/meteo-overview.ts",
+    "module": "dist/meteo-overview.js",
+    "scripts": {
+        "watch": "parcel watch",
+        "build": "parcel build"
+    },
+    "targets": {
+        "module": {
+            "includeNodeModules": true
+        }
+    },
+    "devDependencies": {
+        "@parcel/transformer-inline-string": "^2.14.4",
+        "parcel": "^2.14.4"
+    },
+    "dependencies": {
+        "custom-card-helpers": "^1.9.0",
+        "home-assistant-js-websocket": "^9.5.0",
+        "lit": "^3.3.0"
+    }
+}

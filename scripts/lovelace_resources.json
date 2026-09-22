@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "minor_version": 1,
+  "key": "lovelace_resources",
+  "data": {
+    "items": [
+      {
+        "id": "meteo-overview",
+        "type": "module",
+        "url": "/local/community/meteo-overview/meteo-overview.js"
+      }
+    ]
+  }
+}
