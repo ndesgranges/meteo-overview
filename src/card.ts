@@ -167,6 +167,18 @@ export class MeteoOverview extends LitElement {
         const firstX = points[0][0];
         const areaPath = `${linePath} L ${lastX},${H} L ${firstX},${H} Z`;
 
+        // --- Temperature extrema (for peak / trough labels) ---
+        let peakIdx = -1;
+        let troughIdx = -1;
+        let peakT = -Infinity;
+        let troughT = Infinity;
+        forecast.forEach((p, i) => {
+            if (typeof p.temperature !== "number") return;
+            if (p.temperature > peakT) { peakT = p.temperature; peakIdx = i; }
+            if (p.temperature < troughT) { troughT = p.temperature; troughIdx = i; }
+        });
+        const showExtrema = peakIdx !== -1 && troughIdx !== -1 && peakIdx !== troughIdx;
+
         // --- Sun times ---
         const sunEntity = this._config.sun_entity
             ? this._hass.states[this._config.sun_entity]
@@ -182,6 +194,14 @@ export class MeteoOverview extends LitElement {
         };
         const sunriseX = sunrise ? timeToX(sunrise) : undefined;
         const sunsetX = sunset ? timeToX(sunset) : undefined;
+
+        // Flip the trough marker above the curve when it would sit right on top
+        // of a sun marker (which is anchored at the bottom of the chart)
+        const NEAR_SUN_PX = 40;
+        const collidesWithSun = (x: number) =>
+            (sunriseX !== undefined && Math.abs(x - sunriseX) < NEAR_SUN_PX) ||
+            (sunsetX !== undefined && Math.abs(x - sunsetX) < NEAR_SUN_PX);
+        const troughFlipped = showExtrema && collidesWithSun(points[troughIdx][0]);
 
         // --- Hour labels (start of each group, so the first one is the closest to now) ---
         const groupSize = Math.max(1, Math.floor(forecast.length / CHART_HOUR_LABELS));
@@ -297,6 +317,23 @@ export class MeteoOverview extends LitElement {
                                 ></div>
                             `;
         })}
+                        ${showExtrema
+                ? html`
+                                <div
+                                    class="temp-marker peak"
+                                    style="left: ${(points[peakIdx][0] / W) * 100}%; top: ${(points[peakIdx][1] / H) * 100}%"
+                                >
+                                    ${Math.round(peakT)}°
+                                </div>
+                                <div
+                                    class="temp-marker ${troughFlipped ? "peak" : "trough"}"
+                                    style="left: ${(points[troughIdx][0] / W) * 100}%; top: ${(points[troughIdx][1] / H) * 100}%"
+                                >
+                                    ${Math.round(troughT)}°
+                                </div>
+                            `
+                : nothing
+            }
                         ${sunriseX !== undefined && sunrise
                 ? html`
                                 <div

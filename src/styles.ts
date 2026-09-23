@@ -185,6 +185,22 @@ export const styles = [
         color: var(--warning-color, var(--primary-text-color));
     }
 
+    /* --- Peak / trough temperature markers --- */
+    .temp-marker {
+        position: absolute;
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--primary-text-color);
+        white-space: nowrap;
+        pointer-events: none;
+    }
+    .temp-marker.peak {
+        transform: translate(-50%, calc(-100% - 4px));
+    }
+    .temp-marker.trough {
+        transform: translate(-50%, 4px);
+    }
+
     /* --- Rain overlay (animated vertical drops over rainy hours) --- */
     .rain-overlay {
         position: absolute;
