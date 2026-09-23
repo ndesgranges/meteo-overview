@@ -1,318 +1,361 @@
-import { LovelaceCardConfig } from "custom-card-helpers";``
-import { html, LitElement } from 'lit';
-import { CARD_TYPE, INTEGRATION } from "./consts"
+import { LovelaceCardConfig } from "custom-card-helpers";
+import { html, svg, LitElement, nothing } from "lit";
+
+import { CARD_TYPE, CHART_POINTS, CHART_HOUR_LABELS } from "./consts";
 import { styles } from "./styles";
-
-import { HomeAssistant2, Dictionary, Entity, relativeDate } from "./helpers"
-
+import {
+    ForecastPoint,
+    HassLike,
+    conditionToIcon,
+    formatHour,
+    isNightHour,
+    isRainy,
+    niceRange,
+    parseDate,
+    rainyRanges,
+    smoothPath,
+} from "./helpers";
+import { HA_COLORED_CONDITIONS, renderWeatherSVG } from "./weather-svg";
 
 export interface MeteoOverviewCardConfig extends LovelaceCardConfig {
-  device: string;
-  show_fertilization?: boolean;
+    entity: string;
+    sun_entity?: string;
 }
 
-export class MeteoOverviewCard extends LitElement {
+interface ForecastEvent {
+    type: string;
+    forecast: ForecastPoint[];
+}
 
-    // properties
-    private _hass : HomeAssistant2;
+export class MeteoOverview extends LitElement {
+
+    private _hass: HassLike;
     private _config: MeteoOverviewCardConfig;
 
-    // reactive
-    private _device_id: string;
-    private _translations_loaded: boolean = false;
-    private _states_updated: boolean = true ;
+    private _forecast: ForecastPoint[] = [];
+    private _subscribedEntity?: string;
+    private _unsub?: Promise<() => Promise<void>>;
 
-    // other private
-    private _device_name: string;
-    private _entity_ids: Dictionary<string> = {} ;
-    private _entity_states: Map<string, Entity> = new Map() ;
-    private _config_updated: boolean = true ;
-    private _translations : Dictionary<string> = {
-        "button": "Mark as Watered !",
-        "cancel": "Cancel",
-        "today": "today"
-    }
-
-    static keys : Array<string> = [
-        "mark_watered",
-        "mark_fertilized",
-        "todo",
-        "problem",
-        "fertilize_todo",
-        "last_watered",
-        "last_fertilized",
-        "picture",
-        "days_between_waterings",
-        "days_between_fertilizations",
-        "health",
-        "next_watering",
-        "next_fertilization",
-    ]
-
-    set hass(hass : HomeAssistant2) {
-        // Triggered everytime a state change and more
-        this._hass = hass
-        this._update_entites()
-    }
-
-    // Reactive properties, a change on one of those triggers a re-render
     static properties = {
-        _device_id: { type: String, state: true },
-        _translations_loaded: { type: Boolean, state: true },
-        _states_updated: {
-            type: Boolean,
-            state: true,
-            hasChanged(newVal: boolean, _oldVal: boolean){
-                return newVal // Only re-render if _states_updated is true
-            }
-        }
+        _forecast: { state: true },
+        _hass: { state: true },
     };
 
-    static styles =  styles;
+    static styles = styles;
 
-    setConfig(config : MeteoOverviewCardConfig) {
-        // Triggers everytime the config of the card change
-        if (!config.device) {
-            throw new Error("You need to define a device");
+    set hass(hass: HassLike) {
+        this._hass = hass;
+        this._ensureSubscribed();
+        this.requestUpdate();
+    }
+
+    setConfig(config: MeteoOverviewCardConfig) {
+        if (!config.entity) {
+            throw new Error("You need to define a weather entity");
         }
         this._config = config;
-        this._device_id = config.device;
-        // while editing the entity in the card editor
-        if (this._hass) {
-            this.hass = this._hass
-        }
-        this._config_updated = true;
+        this._ensureSubscribed();
     }
 
-    _moreInfo(entity_key: string){
-        const event = new CustomEvent("hass-more-info", {
-            bubbles: true,
-            composed: true,
-            detail: {
-                entityId: this._entity_ids[entity_key],
-                view: 'info',
-            }
-        });
-
-
-        this.dispatchEvent(event);
+    disconnectedCallback() {
+        super.disconnectedCallback();
+        this._unsubscribe();
     }
 
-    _navigateToDevice(deviceId: string) {
-        window.history.pushState(null, "", `/config/devices/device/${deviceId}`);
-        window.dispatchEvent(new Event("location-changed"));
+    connectedCallback() {
+        super.connectedCallback();
+        this._ensureSubscribed();
     }
 
-    // Create card and its content
-    render() {
-        if(this._config_updated) {
-            // Re fetching device specific information
-            this._get_friendly_name();
-            this._fetch_entities();
-            this._config_updated = false;
-        }
-        // Updating states
-        if(!this._entity_states.size)
-            this._update_entites()
-        // Guard: if entities still aren't loaded, show a placeholder
-        if(!this._entity_states.size || !this._entity_states.get("health")) {
-            return html`
-                <ha-card>
-                    <div class="card-content">
-                        <div class="info">
-                            <h1>${this._device_name || "Météo Overview"}</h1>
-                        </div>
-                    </div>
-                </ha-card>
-            `;
-        }
-        this._states_updated = false; // resetting for future use
-        this._loadTranslations()
-        // compute values
-        const button_label = last_watered === today ? this._translations["cancel"] : this._translations["button"]
+    private async _ensureSubscribed() {
+        if (!this._hass?.connection || !this._config?.entity) return;
+        if (this._subscribedEntity === this._config.entity && this._unsub) return;
+        await this._unsubscribe();
+        this._subscribedEntity = this._config.entity;
+        const entityId = this._config.entity;
+        this._unsub = this._hass.connection.subscribeMessage<ForecastEvent>(
+            (msg) => {
+                this._forecast = msg.forecast || [];
+                this.requestUpdate();
+            },
+            {
+                type: "weather/subscribe_forecast",
+                forecast_type: "hourly",
+                entity_id: entityId,
+            },
+        );
+    }
 
+    private async _unsubscribe() {
+        if (!this._unsub) return;
+        try {
+            const unsub = await this._unsub;
+            await unsub();
+        } catch {
+            // subscription may have failed; nothing to clean up
+        }
+        this._unsub = undefined;
+        this._subscribedEntity = undefined;
+    }
 
-        // return card
+    private _localizeCondition(condition: string | undefined): string {
+        if (!condition) return "";
+        return (
+            this._hass?.localize(`component.weather.entity_component._.state.${condition}`) ||
+            condition
+        );
+    }
+
+    private _moreInfo() {
+        this.dispatchEvent(
+            new CustomEvent("hass-more-info", {
+                bubbles: true,
+                composed: true,
+                detail: { entityId: this._config.entity },
+            }),
+        );
+    }
+
+    private _renderPlaceholder(text: string) {
         return html`
-            <ha-card>
-                <div class="card-content">
-                    <div class="img-header"></div>
-                        ${this._entity_ids["picture"] ? html`
-                            <hui-image
-                                .hass=${this._hass}
-                                .entity=${this._entity_ids["picture"]}
-                                .fitMode=${"cover"}
-                                @click="${() => this._moreInfo("picture")}"
-                            ></hui-image>`
-                        : html`
-                            <div class="img-placeholder">
-                                <ha-icon
-                                    .icon=${"mdi:spa-outline"}
-                                ></ha-icon>
-                            </div>`
-                        }
-                        <ha-icon-button
-                            .label=${days_between_label}
-                            @click="${() => this._moreInfo("days_between_waterings")}"
-                        >
-                            <ha-icon
-                                data-days="${days_between_value}"
-                                .icon=${"mdi:calendar-blank"
-                            }></ha-icon>
-                        </ha-icon-button>
-                    </div>
-                    <div class="info">
-                        <h1 @click="${() => this._navigateToDevice(this._device_id)}">
-                            ${this._device_name}
-                        </h1>
-                        <div class="row">
-                            <ha-icon
-                                data-color
-                                style="--color: ${watering_can_color};"
-                                .icon=${"mdi:watering-can"}
-                            ></ha-icon>
-                            <div class="content" @click="${() => this._moreInfo("last_watered")}">
-                                <p class="${late_class}">${this._translations["late"]} !</p>
-                                <p class="${next_watering_class}">${next_watering}</p>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <ha-icon
-                                .icon=${"mdi:heart-pulse"}
-                                data-color
-                                style="--color: ${healthColor};"
-                            ></ha-icon>
-                            <div class="content" @click="${() => this._moreInfo("health")}">
-                                <p>${health}</p>
-                            </div>
-                        </div>
-
-                        ${show_fert ? html`
-                        <div class="row">
-                            <ha-icon
-                                data-color
-                                style="--color: ${fert_color};"
-                                .icon=${"mdi:sprout"}
-                            ></ha-icon>
-                            <div class="content" @click="${() => this._moreInfo("last_fertilized")}">
-                                <p>${next_fertilization}</p>
-                            </div>
-                        </div>
-                        ` : ""}
-
-                        <ha-button
-                            @click="${this._handleButton}"
-                        >${button_label}</ha-button>
-                    </div>
-                </div>
-            </ha-card>
+        <ha-card>
+            <div class="card-content">
+                <div class="placeholder">${text}</div>
+            </div>
+        </ha-card>
         `;
     }
 
+    render() {
+        if (!this._hass || !this._config) return html``;
+        const stateObj = this._hass.states[this._config.entity];
+        if (!stateObj) return this._renderPlaceholder(`Entity ${this._config.entity} not found`);
+
+        const forecast = (this._forecast || []).slice(0, CHART_POINTS);
+        if (forecast.length < 2) {
+            return this._renderPlaceholder("Loading hourly forecast…");
+        }
+
+        // --- Y axis (temperature range) ---
+        const temps = forecast
+            .map((p) => p.temperature)
+            .filter((t): t is number => typeof t === "number");
+        if (temps.length < 2) {
+            return this._renderPlaceholder("No temperature data in forecast");
+        }
+        const { min: yMin, max: yMax, ticks: yTicks } = niceRange(
+            Math.min(...temps),
+            Math.max(...temps),
+            10,
+        );
+
+        // --- Chart geometry ---
+        const W = 600;
+        const H = 200;
+        const yPad = 16;
+        const yScale = (t: number) =>
+            yPad + ((yMax - t) / (yMax - yMin)) * (H - yPad);
+        const xForIndex = (i: number) => (i + 0.5) * (W / forecast.length);
+
+        const midTemp = (yMin + yMax) / 2;
+        const points: Array<[number, number]> = forecast.map((p, i) => [
+            xForIndex(i),
+            yScale(typeof p.temperature === "number" ? p.temperature : midTemp),
+        ]);
+        const linePath = smoothPath(points);
+        const lastX = points[points.length - 1][0];
+        const firstX = points[0][0];
+        const areaPath = `${linePath} L ${lastX},${H} L ${firstX},${H} Z`;
+
+        // --- Sun times ---
+        const sunEntity = this._config.sun_entity
+            ? this._hass.states[this._config.sun_entity]
+            : undefined;
+        const sunrise = parseDate(sunEntity?.attributes.next_rising as string | undefined);
+        const sunset = parseDate(sunEntity?.attributes.next_setting as string | undefined);
+        const t0 = parseDate(forecast[0].datetime);
+        const tN = parseDate(forecast[forecast.length - 1].datetime);
+        const timeToX = (d: Date): number | undefined => {
+            if (!t0 || !tN || d < t0 || d > tN) return undefined;
+            const frac = (d.getTime() - t0.getTime()) / (tN.getTime() - t0.getTime());
+            return firstX + frac * (lastX - firstX);
+        };
+        const sunriseX = sunrise ? timeToX(sunrise) : undefined;
+        const sunsetX = sunset ? timeToX(sunset) : undefined;
+
+        // --- Hour labels (start of each group, so the first one is the closest to now) ---
+        const groupSize = Math.max(1, Math.floor(forecast.length / CHART_HOUR_LABELS));
+        const labelIndices: number[] = [];
+        for (let g = 0; g < CHART_HOUR_LABELS; g++) {
+            labelIndices.push(Math.min(forecast.length - 1, g * groupSize));
+        }
+
+        // --- Precipitation ---
+        const precipProbs = forecast.map((p) => p.precipitation_probability ?? 0);
+        const precipMax = Math.max(...precipProbs);
+        const rainRanges = rainyRanges(forecast);
+
+        // --- Current conditions ---
+        const now = new Date();
+        const isNightNow = isNightHour(now, sunrise, sunset);
+        const currentIcon = conditionToIcon(stateObj.state, isNightNow);
+        const currentTemp = stateObj.attributes.temperature;
+        const tempUnit = stateObj.attributes.temperature_unit || "°";
+
+        return html`
+        <ha-card>
+            <div class="card-content">
+                <div class="chart-wrapper">
+                    <div class="y-axis">
+                        ${yTicks.map(
+            (t) => html`
+                                <div
+                                    class="y-label"
+                                    style="top: ${(yScale(t) / H) * 100}%"
+                                >
+                                    ${t}°
+                                </div>
+                            `,
+        )}
+                    </div>
+                    <div class="hours-row">
+                    ${labelIndices.map((i) => {
+            const p = forecast[i];
+            const d = parseDate(p.datetime);
+            const night = d ? isNightHour(d, sunrise, sunset) : false;
+            const cond = p.condition;
+            const useSvg = cond && HA_COLORED_CONDITIONS.has(cond);
+            return html`
+                            <div class="hour-item">
+                                <div class="hour">${d ? formatHour(d) : ""}</div>
+                                ${useSvg
+                    ? html`<span class="weather-svg">${renderWeatherSVG(cond!, night)}</span>`
+                    : html`<ha-icon .icon=${conditionToIcon(cond, night)}></ha-icon>`}
+                                <div class="hour-temp">
+                                    ${p.temperature != null
+                    ? `${Math.round(p.temperature)}°`
+                    : ""
+                }
+                                </div>
+                            </div>
+                        `;
+        })}
+                    </div>
+                    <div class="chart-canvas" style="--chart-height: ${H}px">
+                        <svg
+                            viewBox="0 0 ${W} ${H}"
+                            preserveAspectRatio="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                            aria-hidden="true"
+                        >
+                            <defs>
+                            <linearGradient id="tempFill-${this._config.entity}" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" class="fill-stop-top"></stop>
+                            <stop offset="100%" class="fill-stop-bottom"></stop>
+                            </linearGradient>
+                            </defs>
+                            <g class="grid">
+                            ${yTicks.map(
+            (t) => svg`
+                                <line
+                                class="grid-h"
+                                x1="0"
+                                y1="${yScale(t)}"
+                                x2="${W}"
+                                y2="${yScale(t)}"
+                                />
+                                `,
+        )}
+                            ${labelIndices.map((_i, g) => {
+            // Vertical gridlines sit under each hour column center, not on the data point
+            const x = ((g + 0.5) * W) / CHART_HOUR_LABELS;
+            return svg`
+                                <line
+                                class="grid-v"
+                                x1="${x}"
+                                y1="0"
+                                x2="${x}"
+                                y2="${H}"
+                                />
+                                `;
+        })}
+                            </g>
+                            <path
+                            class="area"
+                            d="${areaPath}"
+                            fill="url(#tempFill-${this._config.entity})"
+                            />
+                            <path class="curve" d="${linePath}" fill="none" />
+                        </svg>
+                        ${rainRanges.map(([s, e]) => {
+            const leftPct = (s / forecast.length) * 100;
+            const widthPct = ((e - s + 1) / forecast.length) * 100;
+            return html`
+                                <div
+                                    class="rain-overlay"
+                                    style="left: ${leftPct}%; width: ${widthPct}%"
+                                ></div>
+                            `;
+        })}
+                        ${sunriseX !== undefined && sunrise
+                ? html`
+                                <div
+                                    class="sun-marker"
+                                    style="left: ${(sunriseX / W) * 100}%"
+                                >
+                                    <ha-icon icon="mdi:weather-sunset-up"></ha-icon>
+                                    <span>${formatHour(sunrise)}</span>
+                                </div>
+                            `
+                : nothing
+            }
+                        ${sunsetX !== undefined && sunset
+                ? html`
+                                <div
+                                    class="sun-marker"
+                                    style="left: ${(sunsetX / W) * 100}%"
+                                >
+                                    <ha-icon icon="mdi:weather-sunset-down"></ha-icon>
+                                    <span>${formatHour(sunset)}</span>
+                                </div>
+                            `
+                : nothing
+            }
+                    </div>
+                </div>
+            </div>
+        </ha-card>
+    `;
+    }
 
     static getConfigElement() {
-        // Create and return an editor element for UI card edition
         return document.createElement(`${CARD_TYPE}-editor`);
     }
 
-    static getStubConfig(hass: HomeAssistant2) {
-        // Find the first Weather entity for the preview
-        const device = Object.values(hass.devices).find(
-            (d) => d.identifiers?.some((id: [string, string]) => id[0] === INTEGRATION)
+    static getStubConfig(hass: HassLike) {
+        // Pick the first available weather entity for the initial preview
+        const weatherEntity = Object.keys(hass.states || {}).find((id) =>
+            id.startsWith("weather."),
         );
-        return { device: device?.id || "" };
-    }
-
-    getCardSize() {
-        return 10;
-    }
-
-    // The rules for sizing your card in the grid in sections view
-    // https://developers.home-assistant.io/docs/frontend/custom-ui/custom-card/#sizing-in-sections-view
-    getGridOptions() {
+        const sunEntity = hass.states?.["sun.sun"] ? "sun.sun" : undefined;
         return {
-            columns: 6,
-            min_columns: 6,
-            max_columns: 9,
-            min_rows: 8,
-            max_rows: 8,
+            entity: weatherEntity || "",
+            ...(sunEntity ? { sun_entity: sunEntity } : {}),
         };
     }
 
-    // Specific to Météo Overview
-
-    _handleButton() {
-        this._hass.callService("button", "press", {}, {entity_id: this._entity_ids["mark_watered"]})
+    getCardSize() {
+        return 6;
     }
 
-    _update_entites() {
-        // Update values of entities that got updated
-        var trigger_update = false;
-        if (!this._entity_ids || !this._hass)
-            return
-        for (const [key, id] of Object.entries(this._entity_ids)) {
-            const state = this._hass.states[id];
-            if (!state) {
-                // Entity was removed (e.g. fertilization disabled)
-                if (this._entity_states.has(key)) {
-                    this._entity_states.delete(key);
-                    trigger_update = true;
-                }
-                continue;
-            }
-
-            if (
-                (!this._entity_states.has(key))
-                || (this._entity_states.get(key).state != state.state)
-            ) {
-                trigger_update = true
-            }
-            this._entity_states.set(key, state)
-        }
-        if(trigger_update)
-            this._states_updated = true
-    }
-
-    _get_friendly_name() {
-        if(!this._device_id || !this._hass)
-            return
-        const device = Object.values(this._hass.devices).find(
-            (device) => device.id == this._device_id
-        );
-
-        if (device)
-            this._device_name = device.name;
-        else
-            this._device_name = "";
-    }
-
-    _fetch_entities() {
-        // Get entities from given device
-        if(!this._device_id || !this._hass)
-            return
-        const entities = Object.values(this._hass.entities)
-        const device_entities = entities.filter((entity) => entity.device_id == this._device_id);
-        const entity_ids = device_entities.map(({entity_id}) => (entity_id))
-        // parse entities
-        entity_ids.forEach(id => {
-            MeteoOverviewCard.keys.forEach((key) => {
-                if (id.includes(key)) {
-                // Associate the corresponding key with the matched string
-                this._entity_ids[key] = id;
-                }
-            });
-        });
-    }
-
-
-    async _loadTranslations(){
-        if (!this._entity_states.size || this._translations_loaded)
-            return
-        const translation_key = `component.${INTEGRATION}.entity.button.mark_watered.name`
-        this._translations["button"] = `${this._hass.localize(translation_key)} !` || "1"
-        this._translations["cancel"] = this._hass.localize("ui.common.cancel") || this._hass.localize("common.cancel") || "2"
-        this._translations["today"] = this._hass.localize("ui.components.calendar.today") || "3"
-        this._translations["late"] = this._hass.localize(`component.${INTEGRATION}.entity.binary_sensor.problem.name`) || "4"
-        this._translations_loaded = true
+    getGridOptions() {
+        return {
+            columns: 12,
+            min_columns: 6,
+            max_columns: 12,
+            min_rows: 4,
+            max_rows: 8,
+        };
     }
 }
+

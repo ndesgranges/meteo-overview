@@ -1,123 +1,245 @@
 import { css } from "lit";
 
-export const styles = css`
-    .hidden {
-        display: none;
-        /* opacity: 0; */
+import { weatherSVGStyles } from "./weather-svg";
+
+export const styles = [
+    weatherSVGStyles,
+    css`
+    :host {
+        /* Themeable colors — themes can override these for custom look */
+        --meteo-overview-curve-color: var(--info-color, var(--primary-color));
+        --meteo-overview-precip-color: var(--info-color, var(--primary-color));
+        --meteo-overview-grid-color: var(--divider-color);
+    }
+
+    ha-card {
+        overflow: hidden;
     }
 
     .card-content {
-        padding: 0px;
-        position: relative;
+        padding: 12px 12px 16px 12px;
     }
 
-    .info {
-        padding: 16px;
+    .placeholder {
+        padding: 32px 8px;
+        text-align: center;
+        color: var(--secondary-text-color);
     }
 
-    .row {
+    /* --- Header --- */
+    .header {
         display: flex;
-        flex-direction: row;
         align-items: center;
-        justify-content: flex-start;
-        gap: 16px;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 4px 8px 12px 8px;
+        cursor: pointer;
     }
-
-    .content {
-        position: relative;
+    .header .location {
+        display: flex;
+        flex-direction: column;
         overflow: hidden;
     }
-
-    .content p {
+    .header .name {
+        font-size: 16px;
+        font-weight: 500;
+        color: var(--primary-text-color);
+        overflow: hidden;
         text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .header .condition {
+        font-size: 13px;
+        color: var(--secondary-text-color);
+        text-transform: capitalize;
         overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .header .current {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--primary-text-color);
+    }
+    .header .current ha-icon {
+        --mdc-icon-size: 32px;
+        color: var(--state-icon-color, var(--primary-text-color));
+    }
+    .header .current .temp {
+        font-size: 24px;
+        font-weight: 400;
+    }
+
+    /* --- Chart layout --- */
+    .chart-wrapper {
+        display: grid;
+        grid-template-columns: 36px 1fr;
+        grid-template-areas:
+            ".      hours"
+            "yaxis  chart"
+            ".      precip";
+        column-gap: 4px;
+        row-gap: 4px;
+    }
+
+    .y-axis {
+        grid-area: yaxis;
+        position: relative;
+        color: var(--secondary-text-color);
+        font-size: 11px;
+    }
+    .y-label {
+        position: absolute;
+        right: 4px;
+        transform: translateY(-50%);
         white-space: nowrap;
     }
 
-    .sub {
-        position: absolute;
-        top:0;
-        left: 0;
-        transform: translateY(100%);
-        color: var(--secondary-text-color);
-        font-size: 12px;
+    /* --- Hours row --- */
+    .hours-row {
+        grid-area: hours;
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
     }
-
-
-    h1 {
-        font-weight: normal;
-        font-size: 24px;
-
-        margin-top: 8px;
-        margin-bottom: 0px;
-        line-height: 24px;
-        height: 48px;
-
-        overflow: hidden;
-        text-overflow: ellipsis;
-        display: -webkit-box;
-        line-clamp: 2;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-    }
-
-    hui-image {
-        aspect-ratio: 1 / 1;
-        border-radius: var(--ha-card-border-radius,12px);
-        overflow: hidden;
-    }
-
-    .img-placeholder {
+    .hour-item {
         display: flex;
+        flex-direction: column;
         align-items: center;
-        justify-content: center;
-        width: 100%;
-        /* height: 24px; */
-        padding-top: 8px;
-        padding-bottom: 8px;
-        background-color: rgba(var(--rgb-primary-color), 0.5);
-        border-radius: var(--ha-card-border-radius,12px);
-        overflow: hidden;
+        gap: 2px;
+        font-size: 12px;
+        color: var(--primary-text-color);
+    }
+    .hour-item .hour {
+        color: var(--secondary-text-color);
+    }
+    .hour-item ha-icon {
+        --mdc-icon-size: 22px;
+        color: var(--state-icon-color, var(--primary-text-color));
+    }
+    .hour-item .weather-svg {
+        display: inline-flex;
+        line-height: 0;
+    }
+    .hour-item .weather-svg svg {
+        width: 28px;
+        height: 28px;
+    }
+    .hour-item .hour-temp {
+        font-weight: 500;
     }
 
-    .img-placeholder ha-icon {
-        --mdc-icon-size: 48px;
-        color: rgba(var(--rgb-primary-color), 0.8);
-
-    }
-
-    ha-button {
-        width: 100%;
-        margin-top: 8px;
-    }
-
-
-    ha-icon {
-        display: flex;
+    /* --- Chart canvas --- */
+    .chart-canvas {
+        grid-area: chart;
         position: relative;
+        width: 100%;
+        height: var(--chart-height, 200px);
+    }
+    .chart-canvas svg {
+        display: block;
+        width: 100%;
+        height: 100%;
     }
 
-    ha-icon[data-color] {
-        color: var(--color);
+    .grid-h,
+    .grid-v {
+        stroke: var(--meteo-overview-grid-color);
+        stroke-width: 1;
+        stroke-dasharray: 3 3;
+        vector-effect: non-scaling-stroke;
+        opacity: 0.6;
     }
 
+    .curve {
+        stroke: var(--meteo-overview-curve-color);
+        stroke-width: 2;
+        vector-effect: non-scaling-stroke;
+        opacity: 0.9;
+    }
 
+    .fill-stop-top {
+        stop-color: var(--meteo-overview-curve-color);
+        stop-opacity: 0.45;
+    }
+    .fill-stop-bottom {
+        stop-color: var(--meteo-overview-curve-color);
+        stop-opacity: 0;
+    }
 
-    ha-icon-button {
+    /* --- Sun markers --- */
+    .sun-marker {
         position: absolute;
         bottom: 8px;
-        right: 8px;
-        background-color: rgba(var(--rgb-card-background-color), 0.2);
-        border-radius: 48px;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 11px;
+        color: var(--secondary-text-color);
+        pointer-events: none;
+        white-space: nowrap;
+    }
+    .sun-marker ha-icon {
+        --mdc-icon-size: 14px;
+        color: var(--warning-color, var(--primary-text-color));
     }
 
-    ha-icon-button ha-icon::after {
-        content: attr(data-days, "");
+    /* --- Rain overlay (animated vertical drops over rainy hours) --- */
+    .rain-overlay {
         position: absolute;
-        top: calc( 50% + 1px );
-        left: 0px;
-        transform: translateY(-50%);
-        width: 100%;
-        font-size: 10px;
+        top: 0;
+        bottom: 0;
+        pointer-events: none;
+        overflow: hidden;
+        background: linear-gradient(
+            180deg,
+            rgba(0, 161, 255, 0.14),
+            rgba(0, 161, 255, 0.02)
+        );
     }
-`
+    .rain-overlay::before,
+    .rain-overlay::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: -24px;
+        bottom: -24px;
+        will-change: transform;
+    }
+    /* Front layer: denser, brighter, faster drops */
+    .rain-overlay::before {
+        background-image: radial-gradient(
+            ellipse 0.8px 3px at 50% 50%,
+            rgba(0, 161, 255, 0.9) 40%,
+            transparent 70%
+        );
+        background-size: 8px 16px;
+        animation: meteo-rain-fall-a 0.5s linear infinite;
+    }
+    /* Back layer: sparser, dimmer, slower drops (parallax) */
+    .rain-overlay::after {
+        background-image: radial-gradient(
+            ellipse 0.8px 3px at 50% 50%,
+            rgba(0, 161, 255, 0.55) 40%,
+            transparent 70%
+        );
+        background-size: 14px 22px;
+        background-position: 5px 0;
+        animation: meteo-rain-fall-b 0.85s linear infinite;
+    }
+    @keyframes meteo-rain-fall-a {
+        from { transform: translateY(-16px); }
+        to   { transform: translateY(0); }
+    }
+    @keyframes meteo-rain-fall-b {
+        from { transform: translateY(-22px); }
+        to   { transform: translateY(0); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .rain-overlay::before,
+        .rain-overlay::after { animation: none; }
+    }
+`,
+];

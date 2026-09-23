@@ -1,9 +1,9 @@
 {
-    "name": "ndesgranges/ha-meteoclub",
+    "name": "ndesgranges/meteo-overview",
     "image": "mcr.microsoft.com/devcontainers/python:3.13",
     "postCreateCommand": "scripts/setup",
-    "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/ha-meteoclub,type=bind",
-    "workspaceFolder": "/workspaces/ha-meteoclub",
+    "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/meteo-overview,type=bind",
+    "workspaceFolder": "/workspaces/meteo-overview",
     "forwardPorts": [
         8123
     ],
@@ -53,5 +53,5 @@
                 "npm"
             ]
         }
-   }
+    }
 }

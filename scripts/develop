@@ -11,9 +11,26 @@ if [[ ! -d "${PWD}/config" ]]; then
     # Bind to 0.0.0.0 for mobile testing
     echo -e "\nhttp:\n  server_host: 0.0.0.0" >> "${PWD}/config/configuration.yaml"
     wget -O - https://get.hacs.xyz | bash -
-    mkdir -p "${PWD}/config/www/community"
-    ln -s "${PWD}"/dist" "${PWD}/config/www/community/meteo-overview"
 fi
+
+#  Install meteo-overview card
+CARD_HA_DIR="${PWD}/config/www/community/meteo-overview"
+CARD_DIST_DIR="${PWD}/dist"
+rm -rf "${CARD_HA_DIR}"
+mkdir -p "${CARD_HA_DIR}"
+cp "${CARD_DIST_DIR}/"* "${CARD_HA_DIR}/";
+# watch for changes in dist and copy to HA www dir
+( \
+    while inotifywait -qq -e modify,create "${CARD_DIST_DIR}"; \
+        do cp "${CARD_DIST_DIR}/"* "${CARD_HA_DIR}/"; \
+    done
+) &
+
+
+# Register the card as a dashboard resource
+mkdir -p "${PWD}/config/.storage"
+cp "${PWD}/scripts/lovelace_resources.json" "${PWD}/config/.storage/lovelace_resources"
+
 
 echo "Starting Home Assistant in development mode...
     - Custom component mounted at /config/custom_components/meteoclub

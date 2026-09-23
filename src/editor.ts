@@ -1,67 +1,71 @@
-import { HomeAssistant, LovelaceCardConfig } from "custom-card-helpers";``
-import { html, LitElement } from 'lit';
+import { HomeAssistant, LovelaceCardConfig } from "custom-card-helpers";
+import { html, LitElement } from "lit";
 
-import { INTEGRATION } from "./consts"
+export interface MeteoOverviewCardConfig extends LovelaceCardConfig {
+    entity: string;
+    sun_entity?: string;
+}
 
-export class MeteoOverviewCardEditor extends LitElement {
+export class MeteoOverviewEditor extends LitElement {
 
-    private _hass : HomeAssistant;
-    private _config : LovelaceCardConfig;
+    private _hass: HomeAssistant;
+    private _config: MeteoOverviewCardConfig;
 
     static schema = [
-        {name: "device", selector: { device: { integration: INTEGRATION} }},
-        {name: "show_fertilization", selector: { boolean: {} }},
-    ]
+        {
+            name: "entity",
+            required: true,
+            selector: { entity: { domain: "weather" } },
+        },
+        {
+            name: "sun_entity",
+            selector: { entity: { domain: "sun" } },
+        },
+    ];
 
     static properties = {
         _config: { state: true },
+    };
+
+    set hass(hass: HomeAssistant) {
+        this._hass = hass;
     }
 
-    set hass(hass : HomeAssistant) {
-        this._hass = hass
-    }
-
-    // setConfig works the same way as for the card itself
-    setConfig(config: LovelaceCardConfig) {
+    setConfig(config: MeteoOverviewCardConfig) {
         this._config = config;
     }
 
-    // This function is called when the input element of the editor loses focus
-    _valueChanged(ev: CustomEvent) {
-        if (!this._config || !this._hass) {
-        return;
+    private _computeLabel = (schema: { name: string }) => {
+        if (schema.name === "entity") {
+            return this._hass?.localize("ui.panel.lovelace.editor.card.generic.entity") || "Weather entity";
         }
-        const _config = Object.assign({}, this._config, ev.detail.value);
+        if (schema.name === "sun_entity") {
+            return "Sun entity (optional, for sunrise/sunset)";
+        }
+        return schema.name;
+    };
 
-        this._config = _config;
-
+    private _valueChanged(ev: CustomEvent) {
+        if (!this._config || !this._hass) return;
+        const newConfig = Object.assign({}, this._config, ev.detail.value);
+        this._config = newConfig;
         const event = new CustomEvent("config-changed", {
-        detail: { config: _config },
-        bubbles: true,
-        composed: true,
+            detail: { config: newConfig },
+            bubbles: true,
+            composed: true,
         });
         this.dispatchEvent(event);
     }
 
-    private _computeLabel = (schema: any) => {
-        let label = this.hass?.localize(`ui.panel.lovelace.editor.card.generic.${schema.name}`);
-        if (label) return label;
-        label = this.hass?.localize(`ui.panel.lovelace.editor.card.${schema.label}`);
-        if (label) return label;
-        if (schema.name === "show_fertilization") return "Show fertilization";
-        return schema.name;
-    };
-
     render() {
         if (!this._hass || !this._config) {
-        return html`<div>Invalid</div>`;
+            return html`<div>Invalid</div>`;
         }
-
         return html`
             <ha-form
                 .hass=${this._hass}
                 .data=${this._config}
-                .schema=${MeteoOverviewCardEditor.schema}
+                .schema=${MeteoOverviewEditor.schema}
                 .computeLabel=${this._computeLabel}
                 @value-changed=${this._valueChanged}
             ></ha-form>
