@@ -726,7 +726,7 @@ const $13632afec4749c69$export$9dd6ff9ea0189349 = [
     (0, $def2de46b9306e8a$export$dbf350e5966cf602)`
     :host {
         /* Themeable colors — themes can override these for custom look */
-        --meteo-overview-curve-color: var(--info-color, var(--primary-color));
+        --meteo-overview-curve-color: var(--primary-color);
         --meteo-overview-precip-color: var(--info-color, var(--primary-color));
         --meteo-overview-grid-color: var(--divider-color);
     }
@@ -736,7 +736,7 @@ const $13632afec4749c69$export$9dd6ff9ea0189349 = [
     }
 
     .card-content {
-        padding: 12px 12px 16px 12px;
+        padding: 8px 12px 12px 12px;
     }
 
     .placeholder {
@@ -833,7 +833,7 @@ const $13632afec4749c69$export$9dd6ff9ea0189349 = [
         color: var(--secondary-text-color);
     }
     .hour-item ha-icon {
-        --mdc-icon-size: 22px;
+        --mdc-icon-size: 20px;
         color: var(--state-icon-color, var(--primary-text-color));
     }
     .hour-item .weather-svg {
@@ -841,8 +841,8 @@ const $13632afec4749c69$export$9dd6ff9ea0189349 = [
         line-height: 0;
     }
     .hour-item .weather-svg svg {
-        width: 28px;
-        height: 28px;
+        width: 22px;
+        height: 22px;
     }
     .hour-item .hour-temp {
         font-weight: 500;
@@ -889,8 +889,7 @@ const $13632afec4749c69$export$9dd6ff9ea0189349 = [
     /* --- Sun markers --- */
     .sun-marker {
         position: absolute;
-        bottom: 8px;
-        transform: translateX(-50%);
+        bottom: 4px;
         display: flex;
         align-items: center;
         gap: 4px;
@@ -898,6 +897,7 @@ const $13632afec4749c69$export$9dd6ff9ea0189349 = [
         color: var(--secondary-text-color);
         pointer-events: none;
         white-space: nowrap;
+        /* translateX is set inline so the label stays inside the chart bounds */
     }
     .sun-marker ha-icon {
         --mdc-icon-size: 14px;
@@ -1190,8 +1190,8 @@ class $a399cc6bbb0eb26a$export$7d7dcd0eedac1d1d extends (0, $ab210b2da7b39b9d$ex
         const { min: yMin, max: yMax, ticks: yTicks } = (0, $feccc7a5980a21d5$export$3718c2bf1de9ff8c)(Math.min(...temps), Math.max(...temps), 10);
         // --- Chart geometry ---
         const W = 600;
-        const H = 200;
-        const yPad = 16;
+        const H = 140;
+        const yPad = 12;
         const yScale = (t)=>yPad + (yMax - t) / (yMax - yMin) * (H - yPad);
         const xForIndex = (i)=>(i + 0.5) * (W / forecast.length);
         const midTemp = (yMin + yMax) / 2;
@@ -1355,7 +1355,7 @@ class $a399cc6bbb0eb26a$export$7d7dcd0eedac1d1d extends (0, $ab210b2da7b39b9d$ex
                         ${sunriseX !== undefined && sunrise ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
                                 <div
                                     class="sun-marker"
-                                    style="left: ${sunriseX / W * 100}%"
+                                    style="left: ${sunriseX / W * 100}%; transform: translateX(${-(sunriseX / W) * 100}%)"
                                 >
                                     <ha-icon icon="mdi:weather-sunset-up"></ha-icon>
                                     <span>${(0, $feccc7a5980a21d5$export$86a5557e1d677e29)(sunrise)}</span>
@@ -1364,7 +1364,7 @@ class $a399cc6bbb0eb26a$export$7d7dcd0eedac1d1d extends (0, $ab210b2da7b39b9d$ex
                         ${sunsetX !== undefined && sunset ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
                                 <div
                                     class="sun-marker"
-                                    style="left: ${sunsetX / W * 100}%"
+                                    style="left: ${sunsetX / W * 100}%; transform: translateX(${-(sunsetX / W) * 100}%)"
                                 >
                                     <ha-icon icon="mdi:weather-sunset-down"></ha-icon>
                                     <span>${(0, $feccc7a5980a21d5$export$86a5557e1d677e29)(sunset)}</span>

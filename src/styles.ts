@@ -7,7 +7,7 @@ export const styles = [
     css`
     :host {
         /* Themeable colors — themes can override these for custom look */
-        --meteo-overview-curve-color: var(--info-color, var(--primary-color));
+        --meteo-overview-curve-color: var(--primary-color);
         --meteo-overview-precip-color: var(--info-color, var(--primary-color));
         --meteo-overview-grid-color: var(--divider-color);
     }
@@ -17,7 +17,7 @@ export const styles = [
     }
 
     .card-content {
-        padding: 12px 12px 16px 12px;
+        padding: 8px 12px 12px 12px;
     }
 
     .placeholder {
@@ -114,7 +114,7 @@ export const styles = [
         color: var(--secondary-text-color);
     }
     .hour-item ha-icon {
-        --mdc-icon-size: 22px;
+        --mdc-icon-size: 20px;
         color: var(--state-icon-color, var(--primary-text-color));
     }
     .hour-item .weather-svg {
@@ -122,8 +122,8 @@ export const styles = [
         line-height: 0;
     }
     .hour-item .weather-svg svg {
-        width: 28px;
-        height: 28px;
+        width: 22px;
+        height: 22px;
     }
     .hour-item .hour-temp {
         font-weight: 500;
@@ -170,8 +170,7 @@ export const styles = [
     /* --- Sun markers --- */
     .sun-marker {
         position: absolute;
-        bottom: 8px;
-        transform: translateX(-50%);
+        bottom: 4px;
         display: flex;
         align-items: center;
         gap: 4px;
@@ -179,6 +178,7 @@ export const styles = [
         color: var(--secondary-text-color);
         pointer-events: none;
         white-space: nowrap;
+        /* translateX is set inline so the label stays inside the chart bounds */
     }
     .sun-marker ha-icon {
         --mdc-icon-size: 14px;

@@ -151,8 +151,8 @@ export class MeteoOverview extends LitElement {
 
         // --- Chart geometry ---
         const W = 600;
-        const H = 200;
-        const yPad = 16;
+        const H = 140;
+        const yPad = 12;
         const yScale = (t: number) =>
             yPad + ((yMax - t) / (yMax - yMin)) * (H - yPad);
         const xForIndex = (i: number) => (i + 0.5) * (W / forecast.length);
@@ -338,7 +338,7 @@ export class MeteoOverview extends LitElement {
                 ? html`
                                 <div
                                     class="sun-marker"
-                                    style="left: ${(sunriseX / W) * 100}%"
+                                    style="left: ${(sunriseX / W) * 100}%; transform: translateX(${-(sunriseX / W) * 100}%)"
                                 >
                                     <ha-icon icon="mdi:weather-sunset-up"></ha-icon>
                                     <span>${formatHour(sunrise)}</span>
@@ -350,7 +350,7 @@ export class MeteoOverview extends LitElement {
                 ? html`
                                 <div
                                     class="sun-marker"
-                                    style="left: ${(sunsetX / W) * 100}%"
+                                    style="left: ${(sunsetX / W) * 100}%; transform: translateX(${-(sunsetX / W) * 100}%)"
                                 >
                                     <ha-icon icon="mdi:weather-sunset-down"></ha-icon>
                                     <span>${formatHour(sunset)}</span>
