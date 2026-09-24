@@ -889,7 +889,7 @@ const $13632afec4749c69$export$9dd6ff9ea0189349 = [
     /* --- Sun markers --- */
     .sun-marker {
         position: absolute;
-        bottom: -4px;
+        bottom: -16px;
         display: flex;
         align-items: center;
         gap: 4px;
