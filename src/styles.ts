@@ -6,7 +6,7 @@ export const styles = [
     weatherSVGStyles,
     css`
     :host {
-        /* Themeable colors — themes can override these for custom look */
+        /* Themeable colors - themes can override these for custom look */
         --meteo-overview-curve-color: var(--primary-color);
         --meteo-overview-precip-color: var(--info-color, var(--primary-color));
         --meteo-overview-grid-color: var(--divider-color);
@@ -170,7 +170,7 @@ export const styles = [
     /* --- Sun markers --- */
     .sun-marker {
         position: absolute;
-        bottom: 4px;
+        bottom: -16px;
         display: flex;
         align-items: center;
         gap: 4px;

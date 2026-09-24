@@ -122,8 +122,21 @@ export function smoothPath(points: Array<[number, number]>): string {
 
 // ---- Y axis ----
 
-// Pick a rounded temperature range with ~5 gridlines every `step`.
-export function niceRange(min: number, max: number, step = 10): { min: number; max: number; ticks: number[] } {
+// Pick a rounded temperature range. Chooses the largest step from a candidate
+// list that keeps the top/bottom padding within `maxPadding` degrees, so we
+// don't waste vertical space above the highest / below the lowest data point.
+export function niceRange(
+    min: number,
+    max: number,
+    maxPadding = 4,
+): { min: number; max: number; ticks: number[] } {
+    const candidates = [10, 5, 2, 1];
+    const step =
+        candidates.find(
+            (s) =>
+                Math.ceil(max / s) * s - max <= maxPadding &&
+                min - Math.floor(min / s) * s <= maxPadding,
+        ) ?? candidates[candidates.length - 1];
     const roundedMin = Math.floor(min / step) * step;
     const roundedMax = Math.ceil(max / step) * step;
     // Ensure at least two ticks even if min ≈ max

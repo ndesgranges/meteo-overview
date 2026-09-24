@@ -725,7 +725,7 @@ const $13632afec4749c69$export$9dd6ff9ea0189349 = [
     (0, $82165265a895b47d$export$b1d93779c8cad3c3),
     (0, $def2de46b9306e8a$export$dbf350e5966cf602)`
     :host {
-        /* Themeable colors — themes can override these for custom look */
+        /* Themeable colors - themes can override these for custom look */
         --meteo-overview-curve-color: var(--primary-color);
         --meteo-overview-precip-color: var(--info-color, var(--primary-color));
         --meteo-overview-grid-color: var(--divider-color);
@@ -889,7 +889,7 @@ const $13632afec4749c69$export$9dd6ff9ea0189349 = [
     /* --- Sun markers --- */
     .sun-marker {
         position: absolute;
-        bottom: 4px;
+        bottom: -4px;
         display: flex;
         align-items: center;
         gap: 4px;
@@ -1070,7 +1070,14 @@ function $feccc7a5980a21d5$export$22b6490f9676dd5(points) {
     }
     return d;
 }
-function $feccc7a5980a21d5$export$3718c2bf1de9ff8c(min, max, step = 10) {
+function $feccc7a5980a21d5$export$3718c2bf1de9ff8c(min, max, maxPadding = 4) {
+    const candidates = [
+        10,
+        5,
+        2,
+        1
+    ];
+    const step = candidates.find((s)=>Math.ceil(max / s) * s - max <= maxPadding && min - Math.floor(min / s) * s <= maxPadding) ?? candidates[candidates.length - 1];
     const roundedMin = Math.floor(min / step) * step;
     const roundedMax = Math.ceil(max / step) * step;
     // Ensure at least two ticks even if min ≈ max
@@ -1187,10 +1194,10 @@ class $a399cc6bbb0eb26a$export$7d7dcd0eedac1d1d extends (0, $ab210b2da7b39b9d$ex
         // --- Y axis (temperature range) ---
         const temps = forecast.map((p)=>p.temperature).filter((t)=>typeof t === "number");
         if (temps.length < 2) return this._renderPlaceholder("No temperature data in forecast");
-        const { min: yMin, max: yMax, ticks: yTicks } = (0, $feccc7a5980a21d5$export$3718c2bf1de9ff8c)(Math.min(...temps), Math.max(...temps), 10);
+        const { min: yMin, max: yMax, ticks: yTicks } = (0, $feccc7a5980a21d5$export$3718c2bf1de9ff8c)(Math.min(...temps), Math.max(...temps));
         // --- Chart geometry ---
         const W = 600;
-        const H = 140;
+        const H = this._config.chart_height ?? 140;
         const yPad = 12;
         const yScale = (t)=>yPad + (yMax - t) / (yMax - yMin) * (H - yPad);
         const xForIndex = (i)=>(i + 0.5) * (W / forecast.length);
@@ -1428,6 +1435,18 @@ class $d067581fc0d59830$export$a3f8cab7a0322a73 extends (0, $ab210b2da7b39b9d$ex
                         domain: "sun"
                     }
                 }
+            },
+            {
+                name: "chart_height",
+                selector: {
+                    number: {
+                        min: 80,
+                        max: 400,
+                        step: 10,
+                        mode: "slider",
+                        unit_of_measurement: "px"
+                    }
+                }
             }
         ];
     }
@@ -1473,6 +1492,7 @@ class $d067581fc0d59830$export$a3f8cab7a0322a73 extends (0, $ab210b2da7b39b9d$ex
         super(...args), this._computeLabel = (schema)=>{
             if (schema.name === "entity") return this._hass?.localize("ui.panel.lovelace.editor.card.generic.entity") || "Weather entity";
             if (schema.name === "sun_entity") return "Sun entity (optional, for sunrise/sunset)";
+            if (schema.name === "chart_height") return "Chart height";
             return schema.name;
         };
     }

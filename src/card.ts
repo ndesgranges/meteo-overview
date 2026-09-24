@@ -20,6 +20,7 @@ import { HA_COLORED_CONDITIONS, renderWeatherSVG } from "./weather-svg";
 export interface MeteoOverviewCardConfig extends LovelaceCardConfig {
     entity: string;
     sun_entity?: string;
+    chart_height?: number;
 }
 
 interface ForecastEvent {
@@ -146,12 +147,11 @@ export class MeteoOverview extends LitElement {
         const { min: yMin, max: yMax, ticks: yTicks } = niceRange(
             Math.min(...temps),
             Math.max(...temps),
-            10,
         );
 
         // --- Chart geometry ---
         const W = 600;
-        const H = 140;
+        const H = this._config.chart_height ?? 140;
         const yPad = 12;
         const yScale = (t: number) =>
             yPad + ((yMax - t) / (yMax - yMin)) * (H - yPad);

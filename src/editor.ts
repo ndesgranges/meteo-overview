@@ -4,6 +4,7 @@ import { html, LitElement } from "lit";
 export interface MeteoOverviewCardConfig extends LovelaceCardConfig {
     entity: string;
     sun_entity?: string;
+    chart_height?: number;
 }
 
 export class MeteoOverviewEditor extends LitElement {
@@ -20,6 +21,18 @@ export class MeteoOverviewEditor extends LitElement {
         {
             name: "sun_entity",
             selector: { entity: { domain: "sun" } },
+        },
+        {
+            name: "chart_height",
+            selector: {
+                number: {
+                    min: 80,
+                    max: 400,
+                    step: 10,
+                    mode: "slider",
+                    unit_of_measurement: "px",
+                },
+            },
         },
     ];
 
@@ -41,6 +54,9 @@ export class MeteoOverviewEditor extends LitElement {
         }
         if (schema.name === "sun_entity") {
             return "Sun entity (optional, for sunrise/sunset)";
+        }
+        if (schema.name === "chart_height") {
+            return "Chart height";
         }
         return schema.name;
     };
