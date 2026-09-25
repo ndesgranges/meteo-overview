@@ -122,21 +122,34 @@ export function smoothPath(points: Array<[number, number]>): string {
 
 // ---- Y axis ----
 
-// Pick a rounded temperature range. Chooses the largest step from a candidate
-// list that keeps the top/bottom padding within `maxPadding` degrees, so we
-// don't waste vertical space above the highest / below the lowest data point.
+// Pick a rounded temperature range. Prefers the smallest step (= tightest
+// padding) whose total tick count stays under `maxTicks`, so the axis doesn't
+// end up crowded with graduations. `maxPadding` is a soft preference used only
+// among candidates that already respect the tick-count cap.
 export function niceRange(
     min: number,
     max: number,
     maxPadding = 4,
+    maxTicks = 6,
 ): { min: number; max: number; ticks: number[] } {
-    const candidates = [10, 5, 2, 1];
+    const candidates = [20, 10, 5, 2, 1];
+    const tickCount = (s: number) => {
+        const top = Math.ceil(max / s) * s;
+        const bot = Math.floor(min / s) * s;
+        return Math.round((top - bot) / s) + 1;
+    };
+    // Candidates whose axis fits in maxTicks (ordered largest → smallest step).
+    const fitting = candidates.filter((s) => tickCount(s) <= maxTicks);
+    // Among those, prefer the smallest step whose padding also fits maxPadding;
+    // otherwise fall back to the smallest fitting step (tightest padding overall).
+    const tightPadding = fitting.find((s) => {
+        const top = Math.ceil(max / s) * s;
+        const bot = Math.floor(min / s) * s;
+        return top - max <= maxPadding && min - bot <= maxPadding;
+    });
     const step =
-        candidates.find(
-            (s) =>
-                Math.ceil(max / s) * s - max <= maxPadding &&
-                min - Math.floor(min / s) * s <= maxPadding,
-        ) ?? candidates[candidates.length - 1];
+        tightPadding ??
+        (fitting.length > 0 ? fitting[fitting.length - 1] : candidates[0]);
     const roundedMin = Math.floor(min / step) * step;
     const roundedMax = Math.ceil(max / step) * step;
     // Ensure at least two ticks even if min ≈ max

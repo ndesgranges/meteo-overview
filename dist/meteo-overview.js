@@ -1070,14 +1070,29 @@ function $feccc7a5980a21d5$export$22b6490f9676dd5(points) {
     }
     return d;
 }
-function $feccc7a5980a21d5$export$3718c2bf1de9ff8c(min, max, maxPadding = 4) {
+function $feccc7a5980a21d5$export$3718c2bf1de9ff8c(min, max, maxPadding = 4, maxTicks = 6) {
     const candidates = [
+        20,
         10,
         5,
         2,
         1
     ];
-    const step = candidates.find((s)=>Math.ceil(max / s) * s - max <= maxPadding && min - Math.floor(min / s) * s <= maxPadding) ?? candidates[candidates.length - 1];
+    const tickCount = (s)=>{
+        const top = Math.ceil(max / s) * s;
+        const bot = Math.floor(min / s) * s;
+        return Math.round((top - bot) / s) + 1;
+    };
+    // Candidates whose axis fits in maxTicks (ordered largest → smallest step).
+    const fitting = candidates.filter((s)=>tickCount(s) <= maxTicks);
+    // Among those, prefer the smallest step whose padding also fits maxPadding;
+    // otherwise fall back to the smallest fitting step (tightest padding overall).
+    const tightPadding = fitting.find((s)=>{
+        const top = Math.ceil(max / s) * s;
+        const bot = Math.floor(min / s) * s;
+        return top - max <= maxPadding && min - bot <= maxPadding;
+    });
+    const step = tightPadding ?? (fitting.length > 0 ? fitting[fitting.length - 1] : candidates[0]);
     const roundedMin = Math.floor(min / step) * step;
     const roundedMax = Math.ceil(max / step) * step;
     // Ensure at least two ticks even if min ≈ max
